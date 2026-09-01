@@ -31,18 +31,22 @@ jobs:
               data = ''.join(chunks)
               (b64dir / f'{stem}.b64').write_text(data)
               print('joined', stem, len(data))
+          decoded = []
           for f in sorted(b64dir.glob('*.b64')):
               name = f.name[:-4]
               raw = base64.b64decode(f.read_text().strip())
               Path(name).write_bytes(raw)
+              decoded.append(name)
               print('decoded', name, len(raw))
+          Path('/tmp/decoded.txt').write_text('\n'.join(decoded))
           PY
-          ls -la *.jpg *.png
+          ls -la -- *.jpg *.png 2>/dev/null || ls -la
       - name: Commit binaries
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- *.jpg *.png
+          git add -- *.jpg *.png 2>/dev/null || true
+          git add logo-white.png logo-forest.png logo-black.png bayshore-tagline-white.png lobby-doodle.jpg yard-sniff.jpg 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "no binary changes"
           else
