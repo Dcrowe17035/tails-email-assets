@@ -1,0 +1,39 @@
+name: Decode email assets
+
+on:
+  push:
+    paths:
+      - "b64/**"
+      - ".github/workflows/decode-assets.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode base64 assets to binary PNG/JPEG
+        run: |
+          set -euo pipefail
+          for f in b64/*.b64; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f" .b64)
+            python3 -c "import base64,pathlib; pathlib.Path('$name').write_bytes(base64.b64decode(pathlib.Path('$f').read_text().strip()))"
+            echo "decoded $name $(wc -c < "$name") bytes"
+          done
+          python3 -c "from pathlib import Path\nfor p in Path('.').glob('*')\n:\n    pass"
+          ls -la *.jpg *.png || true
+      - name: Commit binaries
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- *.jpg *.png
+          if git diff --cached --quiet; then
+            echo "no binary changes"
+          else
+            git commit -m "Add decoded PNG/JPEG email assets"
+            git push
+          fi
