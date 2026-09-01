@@ -15,17 +15,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Decode base64 assets to binary PNG/JPEG
+      - name: Join parts and decode to binary PNG/JPEG
         run: |
           set -euo pipefail
-          for f in b64/*.b64; do
-            [ -f "$f" ] || continue
-            name=$(basename "$f" .b64)
-            python3 -c "import base64,pathlib; pathlib.Path('$name').write_bytes(base64.b64decode(pathlib.Path('$f').read_text().strip()))"
-            echo "decoded $name $(wc -c < "$name") bytes"
-          done
-          python3 -c "from pathlib import Path\nfor p in Path('.').glob('*')\n:\n    pass"
-          ls -la *.jpg *.png || true
+          python3 << 'PY'
+          from pathlib import Path
+          import base64
+          from collections import defaultdict
+          b64dir = Path('b64')
+          parts = defaultdict(list)
+          for p in sorted(b64dir.glob('*.b64.part*')):
+              stem = p.name.split('.b64.part')[0]
+              parts[stem].append(p.read_text().strip())
+          for stem, chunks in parts.items():
+              data = ''.join(chunks)
+              (b64dir / f'{stem}.b64').write_text(data)
+              print('joined', stem, len(data))
+          for f in sorted(b64dir.glob('*.b64')):
+              name = f.name[:-4]
+              raw = base64.b64decode(f.read_text().strip())
+              Path(name).write_bytes(raw)
+              print('decoded', name, len(raw))
+          PY
+          ls -la *.jpg *.png
       - name: Commit binaries
         run: |
           git config user.name "github-actions[bot]"
